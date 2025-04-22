@@ -1,0 +1,146 @@
+# ===================
+# JetBrains IDEs (PyCharm, IntelliJ, WebStorm, etc.)
+# ===================
+.idea/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/aws.xml
+.idea/**/contentModel.xml
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+.idea/**/gradle.xml
+.idea/**/libraries
+.idea/**/mongoSettings.xml
+.idea/replstate.xml
+.idea/sonarlint/
+.idea/httpRequests
+.idea/caches/build_file_checksums.ser
+
+# Other IntelliJ-specific
+*.iws
+*.iml
+*.ipr
+.idea_modules/
+out/
+
+# ===================
+# Python
+# ===================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+develop-eggs/
+downloads/
+pip-wheel-metadata/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+.installed.cfg
+MANIFEST
+
+# ===================
+# Virtual Environments
+# ===================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.Python
+
+# ===================
+# Environment Variables
+# ===================
+.env
+.env.*
+
+# ===================
+# Logs / Runtime / DB
+# ===================
+*.log
+*.pid
+*.sqlite3
+*.sqlite3-journal
+*.db
+
+# ===================
+# Unit Test / Coverage / Build
+# ===================
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.pybuilder/
+target/
+
+# ===================
+# Notebooks / Jupyter / IPython
+# ===================
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ===================
+# Static Analysis / Type Checking
+# ===================
+.mypy_cache/
+.pyre/
+.pytype/
+.dmypy.json
+dmypy.json
+
+# ===================
+# Documentation
+# ===================
+docs/_build/
+.site/
+
+# ===================
+# Flask / Django
+# ===================
+instance/
+.webassets-cache/
+local_settings.py
+
+# ===================
+# Misc
+# ===================
+.DS_Store
+Thumbs.db
+
+# ===================
+# Editors
+# ===================
+.vscode/
+.spyderproject
+.spyproject
+.ropeproject

@@ -1,0 +1,10 @@
+langchain
+langchain-community
+langchain-openai
+langgraph
+pgvector
+psycopg2-binary
+tiktoken
+fastapi
+uvicorn
+python-dotenv
