@@ -23,13 +23,14 @@ def decide_next_node_after_multi_turn(state: GraphState) -> str:
         # go generate that response/question.
         logger.debug("Routing from handle_multi_turn_return to generate_response (needs clarification)")
         return "generate_response"
-    elif state.get("intent") == "return_reason_provided":
-        # If the intent indicates the reason was just provided (or skipped),
-        # the next step is to execute the tool to submit the return.
-        logger.debug("Routing from handle_multi_turn_return to execute_tool (reason provided)")
+    # FIX: Check intent or next_node signal from handle_multi_turn_return
+    # If the intent indicates the reason was provided, or the node explicitly set next_node to execute_tool
+    elif state.get("next_node") == "execute_tool" or state.get("intent") == "return_reason_provided":
+        # The next step is to execute the tool to submit the return.
+        logger.debug("Routing from handle_multi_turn_return to execute_tool (reason provided/ready to submit)")
         return "execute_tool"
     else:
-        # Fallback case - should ideally not be hit if logic in handle_multi_turn_return is correct
+        # Fallback case - If error occurred getting details or other unexpected path
         logger.warning("Unexpected state after handle_multi_turn_return, routing to generate_response as fallback.")
         return "generate_response"
 
@@ -57,11 +58,11 @@ def create_graph() -> StateGraph:
         # Decision function: inspects state to determine the next node
         lambda state: state.get("next_node") or "generate_response", # Default to response if no specific next node
         {
-            "execute_tool": "execute_tool",
-            "handle_return_step_1": "execute_tool", # Trigger get_order_details
-            "handle_return_step_2": "handle_multi_turn_return", # Ask for reason
-            "handle_return_step_3": "handle_multi_turn_return", # Confirm before submit
-            "generate_response": "generate_response", # For clarification or errors
+            "execute_tool": "execute_tool",              # Standard tool call or KB query
+            "handle_return_step_1": "execute_tool",      # Trigger get_order_details (via execute_tool)
+            "handle_return_step_2": "handle_multi_turn_return", # Go ask for reason
+            "handle_return_step_3": "handle_multi_turn_return", # Go trigger submission (decision routes to execute_tool)
+            "generate_response": "generate_response",    # For clarification or errors
         }
     )
 
@@ -69,14 +70,17 @@ def create_graph() -> StateGraph:
     workflow.add_conditional_edges(
         "execute_tool",
         # Decide based on intent and errors after tool runs
-        # If initiating return and no error, go to multi-turn handler, otherwise generate response
-        lambda state: "handle_multi_turn_return" if state.get("intent") == "initiate_return" and not state.get("tool_error") and state.get("next_node") != "generate_response" # Check if next_node was explicitly set to generate_response
-                       else "generate_response", # Default to generating a response (success or error)
+        lambda state:
+            # If we just fetched details for a return successfully, go ask for SKU
+            "handle_multi_turn_return" if state.get("intent") == "initiate_return" and not state.get("tool_error") and state.get("api_response") and state.get("api_response", {}).get("items")
+            # Otherwise, generate response (covers success, errors, RAG results, successful return submission)
+            else "generate_response",
         {
-            "handle_multi_turn_return": "handle_multi_turn_return",
-            "generate_response": "generate_response",
+            "handle_multi_turn_return": "handle_multi_turn_return", # Go ask for SKU
+            "generate_response": "generate_response",         # Show result/error/ask next
         }
     )
+
 
     # Edges after multi-turn return handling
     workflow.add_conditional_edges(
@@ -85,7 +89,7 @@ def create_graph() -> StateGraph:
         decide_next_node_after_multi_turn,
         {
             # These map the *return values* of the decision function to node names
-            "generate_response": "generate_response", # Ask clarification question
+            "generate_response": "generate_response", # Ask clarification question or show error
             "execute_tool": "execute_tool",        # Submit the return request
         }
     )
@@ -112,14 +116,17 @@ try:
         graph_png = "ecommerce_bot_graph.png"
         # Check if 'app' exists and has 'get_graph' method before calling draw
         if app and hasattr(app, 'get_graph'):
-            app.get_graph().draw_mermaid_png(output_file_path=graph_png)
+            # Ensure necessary libraries are installed: pip install pygraphviz playwright
+            # and run: playwright install
+            # app.get_graph().draw_mermaid_png(output_file_path=graph_png) # Mermaid often fails locally
+            app.get_graph().draw_graphviz(output_file_path=graph_png) # Try graphviz instead
             logger.info(f"Graph diagram saved to {graph_png}")
         else:
             logger.warning("Compiled app object is invalid, cannot generate graph diagram.")
     except ImportError as ie:
-         logger.warning(f"Could not draw graph diagram. Missing libraries (likely requires playwright, graphviz, etc.): {ie}")
+         logger.warning(f"Could not draw graph diagram. Missing libraries (try `pip install pygraphviz`): {ie}")
     except Exception as draw_error:
-        logger.warning(f"Could not draw graph diagram: {draw_error}")
+        logger.warning(f"Could not draw graph diagram (ensure Graphviz is installed and in PATH): {draw_error}")
         # Attempt ASCII fallback only if app is valid
         if app and hasattr(app, 'get_graph'):
             try:

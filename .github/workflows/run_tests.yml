@@ -15,10 +15,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4 # Use the latest major version
+      uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5 # Use the latest major version
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -28,13 +28,11 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio pytest-mock httpx freezegun
 
-    - name: Run tests
+    - name: Run tests and Generate Report
       run: |
-        pytest tests/
+        # Add the --junitxml flag to generate the report file
+        pytest --junitxml=report.xml tests/
       env:
-        # Set dummy environment variables needed for config loading, if any.
-        # These are used ONLY if your tests don't fully mock config access.
-        # It's better to mock config usage where possible.
         OPENAI_API_KEY: "dummy_key_for_tests"
         POSTGRES_HOST: "localhost"
         POSTGRES_PORT: "5333"
@@ -43,3 +41,15 @@ jobs:
         POSTGRES_PASSWORD: "testpass"
         MOCK_API_BASE_URL: "http://dummy-mock-api.local"
         # Add other required variables from .env.example if necessary for settings to load
+
+    - name: Publish Test Report
+      uses: dorny/test-reporter@v1 # Action to publish test results
+      # Run this step even if previous steps fail (e.g., tests failed)
+      # to ensure the report is always published.
+      if: success() || failure()
+      with:
+        name: Pytest Results (${{ matrix.python-version }}) # Name of the Check Run
+        path: report.xml             # Path to the generated JUnit XML report
+        reporter: pytest-junit       # Specify the reporter type
+        # Optional: Set to true to fail the workflow if test failures are found
+        # fail-on-error: 'true'

@@ -42,15 +42,8 @@ def classify_intent(state: GraphState) -> Dict[str, Any]:
     try:
         # Invoke the LLM bound with tools
         ai_response = llm_with_tools.invoke(messages)
-        # IMPORTANT: Update the state's messages list IMMEDIATELY after the call
-        # LangGraph merges the dictionary returned by the node with the current state.
-        # To modify lists like 'messages', we should include the updated list in the return dict.
-        # However, appending here and relying on the state object being modified directly
-        # *can* work depending on LangGraph's internal handling, but returning the
-        # full updated list is safer. Let's stick to returning updates for now,
-        # and assume LangGraph correctly passes the modified state object if we mutate it.
-        # For robustness, consider returning {"messages": messages + [ai_response]}
-        state["messages"].append(ai_response) # Append AI's thought process/tool calls
+        # Append AI's thought process/tool calls directly to the state's list
+        state["messages"].append(ai_response)
 
         tool_calls = ai_response.tool_calls
         logger.debug(f"LLM tool calls: {tool_calls}")
@@ -68,6 +61,7 @@ def classify_intent(state: GraphState) -> Dict[str, Any]:
 
             # Prepare updates to be returned and merged into the state
             updates: Dict[str, Any] = {
+                # Update state only if new info was extracted
                 "order_id": extracted_order_id or state.get("order_id"),
                 "item_sku_to_return": extracted_sku or state.get("item_sku_to_return"),
                 "return_reason": extracted_reason or state.get("return_reason"),
@@ -86,7 +80,7 @@ def classify_intent(state: GraphState) -> Dict[str, Any]:
                 updates["intent"] = "knowledge_base_query"
             elif tool_name == initiate_return_request.name:
                 # LLM might directly call this if user provides all info upfront
-                updates["intent"] = "initiate_return"
+                updates["intent"] = "initiate_return" # Could also be return_reason_provided if context is right
             elif tool_name == get_order_details.name:
                 # LLM might call this if user asks for details before return
                 updates["intent"] = "initiate_return"
@@ -203,7 +197,7 @@ def execute_tool(state: GraphState) -> Dict[str, Any]:
                     # Handle potential error dict returned by KB tool
                     if isinstance(result, dict) and "error" in result:
                         tool_error = result["error"]
-                        rag_context = None
+                        rag_context = None # Explicitly clear context on error
                         tool_message_content = f"Tool execution returned an error: {tool_error}"
                     elif isinstance(result, str) and result:
                         rag_context = result
@@ -211,7 +205,7 @@ def execute_tool(state: GraphState) -> Dict[str, Any]:
                     else: # Empty string or unexpected result from KB tool
                         rag_context = None
                         # We might not set tool_error here, generate_response handles empty context
-                        tool_message_content = "Knowledge base lookup returned no specific results."
+                        tool_message_content = "Knowledge base lookup returned no specific results." # Updated message
                 else: # API tools
                     api_response = result if isinstance(result, dict) else {"result": str(result)}
                     # Check for errors returned *by the tool* itself (e.g., 404)
@@ -247,13 +241,13 @@ def execute_tool(state: GraphState) -> Dict[str, Any]:
                 # Process the result
                 if isinstance(rag_context_result, dict) and "error" in rag_context_result:
                     tool_error = rag_context_result["error"]
-                    rag_context = None
+                    rag_context = None # Explicitly clear context
                 elif isinstance(rag_context_result, str) and rag_context_result:
                     rag_context = rag_context_result
                     logger.info(f"Explicit RAG execution successful.")
                 else:
                     rag_context = None
-                    tool_error = "No relevant information found in the knowledge base."
+                    # Don't set tool_error here, let generate_response handle no context
                     logger.warning("Explicit RAG lookup returned no results.")
 
                 # No ToolMessage needed here as it wasn't an LLM-driven tool call
@@ -274,12 +268,14 @@ def execute_tool(state: GraphState) -> Dict[str, Any]:
              # Check for errors or unsuitable order details
              if "error" in api_response:
                  tool_error = api_response["error"]
-             elif not api_response.get("items"): # Check if items list is empty or missing
-                 tool_error = f"No returnable items found for order {order_id} (order might not be delivered or items are ineligible)."
+             # IMPROVED CHECK: Ensure items exist, are non-empty, and order is delivered
+             elif not api_response.get("delivered") or not api_response.get("items"):
+                 if not api_response.get("delivered"):
+                     tool_error = f"Order {order_id} is not marked as delivered yet, cannot initiate return."
+                 else: # No items
+                     tool_error = f"No returnable items found for order {order_id} (items might be ineligible)."
+                 logger.warning(f"Return check failed for {order_id}: {tool_error}")
                  # Keep api_response to potentially inform the user in generate_response
-             elif not api_response.get("delivered"): # Double check delivered status
-                  tool_error = f"Order {order_id} is not marked as delivered yet, cannot initiate return."
-                  # Keep api_response
         else:
             tool_error = "Order ID missing for initiating return."
             logger.warning(tool_error)
@@ -307,14 +303,15 @@ def execute_tool(state: GraphState) -> Dict[str, Any]:
         "tool_error": tool_error,
         "next_node": None # Clear marker unless explicitly set again later
     }
-    # Clear multi-turn state *only if* the final return submission was successful
+    # FIX: Clear multi-turn state *only if* the final return submission was successful
+    # Check intent, absence of tool_error, and presence of return_id in api_response
     if intent == "return_reason_provided" and not tool_error and api_response and "return_id" in api_response:
         logger.info(f"Return successful (ID: {api_response.get('return_id')}), clearing return state.")
         updates.update({
             "item_sku_to_return": None,
             "return_reason": None,
             "available_return_items": None,
-            # Keep order_id? Maybe useful for follow-up? Let's clear it for now.
+            # Optionally keep order_id, clearing for now
             # "order_id": None
         })
 
@@ -337,14 +334,17 @@ def handle_multi_turn_return(state: GraphState) -> Dict[str, Any]:
     logger.info(f"Handling multi-turn return. Intent: {intent}, Error: {tool_error}, Expected Step Marker: {expected_step_marker}")
 
     # If an error occurred getting details, pass it to generate_response
+    # This check happens *before* checking the success path
     if tool_error and expected_step_marker == "handle_return_step_1":
         logger.warning(f"Error occurred getting order details: {tool_error}")
         # Don't need clarification, just generate the error message
-        return {"needs_clarification": False, "clarification_question": None, "next_node": "generate_response"}
+        # Important: Ensure tool_error is passed through in the return dict
+        return {"tool_error": tool_error, "needs_clarification": False, "clarification_question": None, "next_node": "generate_response"}
 
     # --- Step 1 Outcome: Received Order Details, Ask for SKU ---
-    # This path is entered after execute_tool successfully ran get_order_details
-    if intent == "initiate_return" and api_response and api_response.get("items"):
+    # This path is entered after execute_tool successfully ran get_order_details (and tool_error is None)
+    # Check intent, api_response exists, and items list is non-empty
+    if intent == "initiate_return" and not tool_error and api_response and api_response.get("items"):
         items = api_response["items"]
         logger.info(f"Order {order_id} details fetched. Items available for return: {items}")
         # Format item list for the user
@@ -357,10 +357,12 @@ def handle_multi_turn_return(state: GraphState) -> Dict[str, Any]:
             "clarification_question": question, # The question to ask
             "next_node": "generate_response" # Route to generate_response to ask
         }
-    elif intent == "initiate_return" and expected_step_marker == "handle_return_step_1":
-        # Handle case where get_order_details ran but found no items or error occurred (already checked tool_error above)
-        error_msg = tool_error or (api_response.get("error") if api_response else None) or f"Sorry, I couldn't find any returnable items for order {order_id}. This might be because the order hasn't been delivered yet or items are ineligible."
-        logger.warning(f"No returnable items found or error in details for {order_id}: {error_msg}")
+    # FIX: Handle case where get_order_details ran successfully but found no items or other issue (e.g., not delivered)
+    # This is hit if tool_error was *not* set in execute_tool but the check there still failed (e.g., items list empty)
+    elif intent == "initiate_return" and expected_step_marker == "handle_return_step_1" and not tool_error:
+        # Generate a user-friendly error message if one wasn't already created
+        error_msg = (api_response.get("error") if api_response else None) or f"Sorry, I couldn't find any returnable items for order {order_id}, or the order is not eligible for return yet."
+        logger.warning(f"No returnable items identified or error in details for {order_id}: {error_msg}")
         return {"tool_error": error_msg, "needs_clarification": False, "next_node": "generate_response"}
 
 
@@ -382,12 +384,14 @@ def handle_multi_turn_return(state: GraphState) -> Dict[str, Any]:
     elif intent == "return_reason_provided" and expected_step_marker == "handle_return_step_3":
         logger.info("Reason provided (or skipped). Ready to submit return request.")
         # We don't need clarification. Signal to proceed to the tool execution node.
-        return {"needs_clarification": False, "clarification_question": None, "next_node": "execute_tool"}
+        # The decision function after this node will route to execute_tool based on intent.
+        return {"needs_clarification": False, "clarification_question": None, "next_node": "execute_tool"} # FIX: Use execute_tool for decision routing
 
     # --- Fallback ---
     # This case should ideally not be reached if the routing and state updates are correct
     logger.warning(f"Unexpected state in handle_multi_turn_return. Intent: {intent}, Marker: {expected_step_marker}. Routing to generate_response.")
-    return {"needs_clarification": False, "clarification_question": None, "next_node": "generate_response"}
+    # Pass through existing error if any, otherwise generate a generic response
+    return {"tool_error": tool_error, "needs_clarification": False, "clarification_question": None, "next_node": "generate_response"}
 
 
 def generate_response(state: GraphState) -> Dict[str, Any]:
@@ -410,6 +414,7 @@ def generate_response(state: GraphState) -> Dict[str, Any]:
         logger.info(f"Generated clarification response: {response_text}")
 
     # --- Priority 2: Report Tool Error ---
+    # Note: tool_error might be set even if api_response exists (e.g., API returned an error field)
     elif tool_error:
         # Provide a user-friendly message based on the error
         response_text = f"I encountered an issue: {tool_error}"
@@ -421,16 +426,11 @@ def generate_response(state: GraphState) -> Dict[str, Any]:
             logger.info("Generating response from RAG context.")
             # Find the most recent user query that likely triggered this
             last_user_message_content = "your question" # Default
-            relevant_message_index = -1
-            if messages and isinstance(messages[-1], HumanMessage):
-                 last_user_message_content = messages[-1].content
-                 relevant_message_index = -1
-            elif messages and len(messages) > 1 and isinstance(messages[-2], HumanMessage) and isinstance(messages[-1], (AIMessage, ToolMessage)):
-                 # Look back if the last message was AI/Tool response
-                 last_user_message_content = messages[-2].content
-                 relevant_message_index = -2
-            elif messages: # Fallback to just the last message content if possible
-                 last_user_message_content = messages[-1].content
+            # Iterate backwards to find the most recent HumanMessage
+            for msg in reversed(messages):
+                if isinstance(msg, HumanMessage):
+                    last_user_message_content = msg.content
+                    break
 
             # Construct prompt for LLM to synthesize answer
             prompt = f"""Based *only* on the following information from our knowledge base:
@@ -449,34 +449,37 @@ def generate_response(state: GraphState) -> Dict[str, Any]:
                 logger.error(f"LLM invocation failed during RAG response generation: {e}", exc_info=True)
                 response_text = "I found some information in our knowledge base, but had trouble formulating a final answer. Could you perhaps rephrase your question?"
         else:
-            # RAG ran but found no context (tool_error might have been set too)
+            # RAG ran but found no context (tool_error might have been set too, but handled above)
             response_text = "I looked in our knowledge base, but couldn't find specific information about that."
             logger.warning("Generating response, but RAG context was empty or lookup failed.")
 
-    elif api_response: # Handle responses from API tools
+    elif api_response: # Handle responses from API tools (assuming no tool_error took precedence)
         logger.info(f"Generating response from API result: {api_response}")
         # Format API responses nicely based on the intent
         if intent == "get_order_status":
             response_text = f"The status for order {api_response.get('order_id', 'N/A')} is: {api_response.get('status', 'Unknown')}."
         elif intent == "get_tracking_info":
+            # FIX: Handle tracking not available case specifically
             if api_response.get('tracking_number'):
                 response_text = (f"Tracking for order {api_response.get('order_id', 'N/A')}: "
                                  f"Number {api_response.get('tracking_number')}, "
                                  f"Carrier: {api_response.get('carrier', 'N/A')}, "
                                  f"Status: {api_response.get('status', 'N/A')}.")
-            else: # Tracking not available yet case
+            else: # Check specific status message or default
+                status_msg = api_response.get('status', 'Unavailable')
                 response_text = (f"Tracking information is not yet available for order {api_response.get('order_id', 'N/A')}. "
-                                 f"Current status: {api_response.get('status', 'Unavailable')}.")
-        # Check for successful return submission response
+                                 f"Current status: {status_msg}.")
+        # FIX: Check for successful return submission response
         elif intent == "return_reason_provided" and api_response.get("return_id"):
             response_text = f"Success! {api_response.get('message', 'Return initiated.')} Your return ID is {api_response.get('return_id')}."
         # Handle other potential API responses or fallback
         else:
-            # Generic response if specific formatting isn't defined, or for errors missed earlier
+            # FIX: Generic response prioritizing error/message fields if present
             error_msg = api_response.get('error') or api_response.get('message')
             if error_msg:
                  response_text = f"There was an issue: {error_msg}"
             else:
+                 # Fallback for unexpected API response structure
                  response_text = f"I received the following details: {str(api_response)}"
 
     # --- Priority 4: Handle Simple Intents (Greeting/Goodbye) ---
@@ -489,14 +492,23 @@ def generate_response(state: GraphState) -> Dict[str, Any]:
     # --- Fallback Response ---
     else:
         # If none of the above conditions met (e.g., unsupported intent, unexpected state)
+        logger.info("No specific response path matched, generating fallback response.")
         response_text = "I'm sorry, I can't assist with that specific request right now. I can help with order status, tracking, returns, and answer general questions from our FAQ."
-        # Optionally, use LLM's direct response if classify_intent produced one without tool calls
+        # FIX: Optionally, use LLM's direct response if classify_intent produced one without tool calls
         last_ai_message = messages[-1] if messages and isinstance(messages[-1], AIMessage) else None
-        if last_ai_message and last_ai_message.content and not hasattr(last_ai_message, 'tool_calls') or not last_ai_message.tool_calls:
+        # Check if last msg is AI, has content, and did *not* have tool calls
+        if last_ai_message and last_ai_message.content and not (hasattr(last_ai_message, 'tool_calls') and last_ai_message.tool_calls):
              response_text = last_ai_message.content
 
     logger.info(f"Final generated response: {response_text}")
 
     # Return the final AIMessage to be appended to the state's messages list by LangGraph
-    # Critical: Only return the state key(s) to be updated.
-    return {"messages": [AIMessage(content=response_text)]}
+    # Critical: Only return the state key(s) to be updated. LangGraph handles merging.
+    # We modified state['messages'] directly earlier, LangGraph needs the final AI message appended.
+    # Returning {"messages": [AIMessage(content=response_text)]} tells LangGraph to *replace*
+    # the messages list with just this one message. Instead, we should append *directly*
+    # to the state object passed in, and return an empty dict or only other keys to update.
+    # Let's follow the common pattern: append directly and return the update.
+    state["messages"].append(AIMessage(content=response_text))
+    # Return an empty dictionary as we've modified the state object directly
+    return {}

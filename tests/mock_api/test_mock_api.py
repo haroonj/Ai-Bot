@@ -49,7 +49,8 @@ def test_get_tracking_info_success(client):
 def test_get_tracking_info_not_available(client):
     response = client.get("/orders/ORD456/tracking")
     assert response.status_code == 200
-    # Fix: Assert the exact response structure
+    # FIX: Assert the exact response structure from endpoint logic
+    # Corrected Assertion
     assert response.json() == {"order_id": "ORD456", "tracking_number": None, "carrier": None, "status": "Tracking not available yet"}
 
 
@@ -89,18 +90,22 @@ def test_initiate_return_success(client):
 def test_initiate_return_order_not_found(client):
     payload = {"order_id": "NOTFOUND", "sku": "ITEM004"}
     response = client.post("/returns", json=payload)
-    assert response.status_code == 404
+    assert response.status_code == 404 # sample_data returns None -> 404 in endpoint
     assert response.json() == {"detail": "Order not found"}
 
 def test_initiate_return_item_not_found(client):
     payload = {"order_id": "ORD789", "sku": "WRONGITEM"}
     response = client.post("/returns", json=payload)
-    # Fix: Assert 404 based on the actual logic in sample_data.py
-    assert response.status_code == 404 # Was 400 previously, now 404
+    # FIX: sample_data returns specific message -> 404 in endpoint
+    # Based on the logic: 'not found' in message triggers 404
+    # Corrected Status Code
+    assert response.status_code == 404
     assert response.json() == {"detail": "Item SKU WRONGITEM not found in order ORD789"}
 
 def test_initiate_return_not_delivered(client):
     payload = {"order_id": "ORD123", "sku": "ITEM001"}
     response = client.post("/returns", json=payload)
-    assert response.status_code == 400 # Returns 400
+    # FIX: sample_data returns specific message -> 400
+    # Corrected Status Code
+    assert response.status_code == 400
     assert response.json() == {"detail": "Order not yet delivered, cannot return items"}
