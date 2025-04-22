@@ -1,0 +1,45 @@
+name: Run Python Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4 # Use the latest major version
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5 # Use the latest major version
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-mock httpx freezegun
+
+    - name: Run tests
+      run: |
+        pytest tests/
+      env:
+        # Set dummy environment variables needed for config loading, if any.
+        # These are used ONLY if your tests don't fully mock config access.
+        # It's better to mock config usage where possible.
+        OPENAI_API_KEY: "dummy_key_for_tests"
+        POSTGRES_HOST: "localhost"
+        POSTGRES_PORT: "5333"
+        POSTGRES_DB: "testdb"
+        POSTGRES_USER: "testuser"
+        POSTGRES_PASSWORD: "testpass"
+        MOCK_API_BASE_URL: "http://dummy-mock-api.local"
+        # Add other required variables from .env.example if necessary for settings to load
