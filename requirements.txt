@@ -1,10 +1,23 @@
+# requirements.txt
 langchain
 langchain-community
 langchain-openai
 langgraph
+# For PGVector - make sure you have postgres client libs installed system-wide if needed
 pgvector
-psycopg2-binary
+psycopg2-binary # Or psycopg2 if you compile yourself
+# LLM related
 tiktoken
+openai # Assuming OpenAI use
+# API Framework
 fastapi
-uvicorn
+uvicorn[standard] # Web server
+# Configuration & HTTP requests
 python-dotenv
+pydantic-settings # For cleaner config loading
+httpx # Modern async/sync HTTP client for tool API calls
+# Optional, but good for RAG text splitting
+unstructured # Can be heavy, consider alternatives if needed
+markdown # For processing .md files
+# Langsmith (Optional but highly recommended for tracing)
+langsmith
