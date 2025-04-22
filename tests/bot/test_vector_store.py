@@ -5,13 +5,8 @@ import sys
 import os
 from pathlib import Path
 
-# Import only the specific mock *instances* or *Mock Classes* needed from conftest
-from tests.conftest import (
-    mock_pgvector_instance,
-    MockPGVector_Session as MockPGVector,
-    mock_embeddings_instance
-    # Don't import loader/splitter mocks from conftest if patching locally
-)
+# Dependencies (PGVector, embeddings, Path, loaders) are mocked globally by conftest.py
+from tests.conftest import mock_pgvector_instance, mock_retriever_instance # Import instances for assertions
 
 @pytest.fixture
 def vector_store_module():
@@ -21,7 +16,7 @@ def vector_store_module():
     if project_root not in sys.path:
          sys.path.insert(0, project_root)
     import bot.vector_store
-    importlib.reload(bot.vector_store) # Reload to ensure module uses session patches
+    importlib.reload(bot.vector_store)
     return bot.vector_store
 
 @pytest.fixture
@@ -30,7 +25,6 @@ def bot_settings():
     from bot.config import settings
     return settings
 
-# test_vector_store_initialization might still be flaky, focus on function tests
 def test_vector_store_initialization(vector_store_module):
     """Test if PGVector instance in the module is the session mock."""
     assert vector_store_module.vector_store is mock_pgvector_instance
@@ -54,8 +48,8 @@ def test_get_retriever_no_store(vector_store_module, mocker):
     logger_warning.assert_called_with("Vector store not initialized. Cannot create retriever.")
 
 def test_load_and_split_documents(vector_store_module, mocker):
-    """Test document loading and splitting logic using local mocks."""
-    # Use mocker fixture for local patches within this test
+    """Test document loading and splitting logic."""
+    # Use local mocks for loader/splitter/path as global ones might be complex
     MockLocalDirectoryLoader = MagicMock(name="LocalDirLoader")
     mock_local_loader_instance = MockLocalDirectoryLoader.return_value
     MockLocalSplitter = MagicMock(name="LocalSplitter")
@@ -63,24 +57,19 @@ def test_load_and_split_documents(vector_store_module, mocker):
     MockLocalPathInstance = MagicMock(spec=Path)
     MockLocalPath = MagicMock(name="LocalPath", return_value=MockLocalPathInstance)
 
-    # Patch specifically where needed for this function
+    # Patch locally for this test's scope
     mocker.patch('bot.vector_store.DirectoryLoader', MockLocalDirectoryLoader)
     mocker.patch('bot.vector_store.RecursiveCharacterTextSplitter', MockLocalSplitter)
-    # Patch Path usage *within the function's scope* if direct patching fails
-    # This often requires patching where the dependency is imported inside the function,
-    # or patching the function that uses Path if possible.
-    # Let's assume DirectoryLoader uses langchain_community's Path for now.
     mocker.patch('langchain_community.document_loaders.directory.Path', MockLocalPath, create=True)
-
 
     mock_doc1 = MagicMock()
     mock_doc2 = MagicMock()
     mock_split_docs = [MagicMock(), MagicMock(), MagicMock()]
     mock_local_loader_instance.load.return_value = [mock_doc1, mock_doc2]
     mock_local_splitter_instance.split_documents.return_value = mock_split_docs
-    MockLocalPathInstance.exists.return_value = True # Mock path check
+    MockLocalPathInstance.exists.return_value = True
 
-    test_path = "/fake/path/for/load_split" # Unique path
+    test_path = "/fake/path/for/load_split"
     result = vector_store_module.load_and_split_documents(test_path)
 
     MockLocalPath.assert_called_with(test_path)

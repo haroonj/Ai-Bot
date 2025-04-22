@@ -6,8 +6,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 import sys
 import os
 
-# NOTE: get_runnable is mocked globally by tests/conftest.py
-# Import the specific mock instance if needed for configuration/assertions
+# Import the specific session-wide mock from conftest using the correct name
 from tests.conftest import mock_langgraph_runnable
 
 # --- Import app AFTER patching (handled by conftest autouse fixture) ---
@@ -17,7 +16,6 @@ try:
 except Exception as e:
     print(f"Error importing main app: {e}")
     pytest.skip("Skipping main tests due to import error.", allow_module_level=True)
-
 
 @pytest.fixture(scope="module")
 def client():

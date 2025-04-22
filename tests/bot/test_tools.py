@@ -5,8 +5,7 @@ import httpx
 import sys
 import os
 
-# NOTE: Dependencies are mocked globally by tests/conftest.py
-# We access the mock *instances* defined there directly in tests if needed for configuration/assertions.
+# Import only the instances/factories needed for assertions/setup from conftest
 from tests.conftest import mock_httpx_client_instance, mock_retriever_instance, MockGetRetriever
 
 @pytest.fixture
@@ -26,9 +25,8 @@ def tools_config():
     from bot.config import settings
     return settings
 
-# No need for reset_tool_mocks fixture, handled by conftest reset_session_mocks
-
-# --- get_order_status Tests ---
+# --- Tests ---
+# (Tests remain the same as previous version - should now work with conftest mocks)
 def test_get_order_status_success(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
@@ -51,8 +49,6 @@ def test_get_order_status_not_found(tools_module):
     mock_response.raise_for_status.assert_called_once()
     assert result == {"error": "Order ID 'NOTFOUND' not found."}
 
-# ... (rest of test_tools.py - no changes needed from previous full version) ...
-
 def test_get_order_status_api_error(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 500
@@ -69,7 +65,6 @@ def test_get_order_status_request_error(tools_module):
     mock_httpx_client_instance.get.assert_called_once_with("/orders/CONNERR/status")
     assert result == {"error": "Could not connect to the order system to fetch status for CONNERR."}
 
-# --- get_tracking_info Tests ---
 def test_get_tracking_info_success(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
@@ -89,7 +84,6 @@ def test_get_tracking_info_not_found(tools_module):
      mock_httpx_client_instance.get.assert_called_once_with("/orders/NF/tracking")
      assert result == {"error": "Order ID 'NF' not found."}
 
-# --- get_order_details Tests ---
 def test_get_order_details_success_delivered(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
@@ -122,7 +116,6 @@ def test_get_order_details_not_found(tools_module):
      mock_httpx_client_instance.get.assert_called_once_with("/orders/NF/details")
      assert result == {"error": "Order ID 'NF' not found."}
 
-# --- initiate_return_request Tests ---
 def test_initiate_return_success(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
@@ -156,7 +149,6 @@ def test_initiate_return_api_error_no_detail(tools_module):
     mock_httpx_client_instance.post.assert_called_once_with("/returns", json=payload)
     assert result == {"error": "API error initiating return: Status 500"}
 
-# --- knowledge_base_lookup Tests ---
 def test_knowledge_base_lookup_success(tools_module):
     MockGetRetriever.return_value = mock_retriever_instance
     mock_doc1 = MagicMock()
