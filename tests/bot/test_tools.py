@@ -26,7 +26,7 @@ def tools_config():
     return settings
 
 # --- Tests ---
-# (Tests remain the same as previous version - should now work with conftest mocks)
+# (Tests for get_order_status, get_tracking_info, get_order_details are correct)
 def test_get_order_status_success(tools_module):
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
@@ -122,9 +122,11 @@ def test_initiate_return_success(tools_module):
     mock_response.json.return_value = {"return_id": "RET1", "status": "OK", "message": "Done"}
     mock_response.raise_for_status.return_value = None
     mock_httpx_client_instance.post.return_value = mock_response
-    payload = {"order_id": "ORD789", "sku": "SKU1", "reason": "R"}
-    result = tools_module.initiate_return_request.invoke(payload)
-    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=payload)
+    # This payload includes the reason
+    payload_to_invoke = {"order_id": "ORD789", "sku": "SKU1", "reason": "R"}
+    result = tools_module.initiate_return_request.invoke(payload_to_invoke)
+    # Assert that the client.post received the reason correctly
+    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=payload_to_invoke)
     assert result["return_id"] == "RET1"
 
 def test_initiate_return_api_error_detail(tools_module):
@@ -133,9 +135,13 @@ def test_initiate_return_api_error_detail(tools_module):
     mock_response.json.return_value = {"detail": "Item not eligible for return"}
     mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("BR", request=MagicMock(), response=mock_response)
     mock_httpx_client_instance.post.return_value = mock_response
-    payload = {"order_id": "ORDX", "sku": "SKUX"}
-    result = tools_module.initiate_return_request.invoke(payload)
-    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=payload)
+    # Payload passed to invoke (missing reason)
+    payload_to_invoke = {"order_id": "ORDX", "sku": "SKUX"}
+    result = tools_module.initiate_return_request.invoke(payload_to_invoke)
+
+    # FIX: Expected payload sent by client.post includes reason=None
+    expected_post_payload = {"order_id": "ORDX", "sku": "SKUX", "reason": None}
+    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=expected_post_payload)
     assert result == {"error": "Item not eligible for return"}
 
 def test_initiate_return_api_error_no_detail(tools_module):
@@ -144,11 +150,16 @@ def test_initiate_return_api_error_no_detail(tools_module):
     mock_response.json.side_effect = ValueError("Not JSON")
     mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("SE", request=MagicMock(), response=mock_response)
     mock_httpx_client_instance.post.return_value = mock_response
-    payload = {"order_id": "ORDY", "sku": "SKUY"}
-    result = tools_module.initiate_return_request.invoke(payload)
-    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=payload)
+    # Payload passed to invoke (missing reason)
+    payload_to_invoke = {"order_id": "ORDY", "sku": "SKUY"}
+    result = tools_module.initiate_return_request.invoke(payload_to_invoke)
+
+    # FIX: Expected payload sent by client.post includes reason=None
+    expected_post_payload = {"order_id": "ORDY", "sku": "SKUY", "reason": None}
+    mock_httpx_client_instance.post.assert_called_once_with("/returns", json=expected_post_payload)
     assert result == {"error": "API error initiating return: Status 500"}
 
+# --- knowledge_base_lookup Tests (should be correct) ---
 def test_knowledge_base_lookup_success(tools_module):
     MockGetRetriever.return_value = mock_retriever_instance
     mock_doc1 = MagicMock()
