@@ -2,87 +2,95 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>AI E-commerce Bot</title>
-    <!-- Include Tailwind Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Add smooth scrolling */
-        html { scroll-behavior: smooth; }
-        /* Style scrollbar (optional) */
-        .chat-history::-webkit-scrollbar { width: 8px; }
-        .chat-history::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px;}
-        .chat-history::-webkit-scrollbar-thumb { background: #888; border-radius: 10px;}
-        .chat-history::-webkit-scrollbar-thumb:hover { background: #555; }
+        html {
+            scroll-behavior: smooth;
+        }
+
+        .chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-history::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .chat-history::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .chat-history::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen bg-gray-100">
-    <header class="bg-gray-800 text-white p-4 text-center shadow-md sticky top-0 z-10">
-        <h1 class="text-xl font-semibold">AI E-commerce Support Bot</h1>
-    </header>
+<header class="bg-gray-800 text-white p-4 text-center shadow-md sticky top-0 z-10">
+    <h1 class="text-xl font-semibold">AI E-commerce Support Bot</h1>
+</header>
 
-    <!-- Chat Container -->
-    <div class="flex-grow container mx-auto max-w-3xl p-4 flex flex-col">
-        <!-- Chat History -->
-        <div id="chat-history" class="chat-history flex-grow bg-white p-4 space-y-4 overflow-y-auto mb-4 border border-gray-300 rounded-lg shadow-inner">
-            {% if not messages %}
-                <div class="text-center text-gray-500 italic">Start chatting with the bot!</div>
-            {% endif %}
-            {% for message in messages %}
-                <div class="flex {{ 'justify-end' if message.type == 'human' else 'justify-start' }}">
-                    <div class="message {{ 'user' if message.type == 'human' else 'assistant' }} p-3 rounded-lg shadow max-w-[75%] {{ 'bg-blue-500 text-white rounded-br-none' if message.type == 'human' else 'bg-gray-200 text-gray-800 rounded-bl-none' }}">
-                        <p class="text-sm break-words whitespace-pre-wrap">{{ message.content }}</p> {# whitespace-pre-wrap preserves newlines #}
-                    </div>
-                </div>
-            {% endfor %}
-            <!-- Scroll target -->
-             <div id="chat-end"></div>
-        </div>
-
-        <!-- Error Display -->
-         {% if error %}
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-3 text-sm" role="alert">
-              <strong class="font-bold">Error:</strong>
-              <span class="block sm:inline">{{ error }}</span>
-            </div>
+<div class="flex-grow container mx-auto max-w-3xl p-4 flex flex-col">
+    <div class="chat-history flex-grow bg-white p-4 space-y-4 overflow-y-auto mb-4 border border-gray-300 rounded-lg shadow-inner"
+         id="chat-history">
+        {% if not messages %}
+        <div class="text-center text-gray-500 italic">Start chatting with the bot!</div>
         {% endif %}
-
-        <!-- Input Area -->
-        <div class="chat-input p-4 bg-white border-t border-gray-300 rounded-b-lg sticky bottom-0">
-             <form action="/chat" method="post" class="flex items-center gap-2">
-                <!-- Hidden input to pass message history back -->
-                <input type="hidden" name="history_json" value="{{ history_json | e }}"> {# Use 'e' filter for escaping #}
-
-                <input
-                    type="text"
-                    name="query"
-                    placeholder="Ask about orders, tracking, returns..."
-                    autofocus
-                    required
-                    autocomplete="off"
-                    class="flex-grow border border-gray-400 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                <button
-                    type="submit"
-                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                    aria-label="Send message"
-                    >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                      <path d="M3.105 3.105a.75.75 0 0 1 .814-.174l14.64 6.016a.75.75 0 0 1 0 1.379l-14.64 6.016a.75.75 0 0 1-1.015-.99l2.43-6.81a.75.75 0 0 1 .175-.31l-.001-.001L5.39 9.75l-2.43-6.81a.75.75 0 0 1 .145-.834Z" />
-                      <path d="M18.5 9.75a.75.75 0 0 1-.75.75H3.115l2.433 6.81a.75.75 0 0 1-1.186.776l-3.5-9.75a.75.75 0 0 1 0-.852l3.5-9.75a.75.75 0 0 1 1.186.776L3.115 9H17.75a.75.75 0 0 1 .75.75Z" />
-                    </svg>
-
-                  </button>
-            </form>
+        {% for message in messages %}
+        <div class="flex {{ 'justify-end' if message.type == 'human' else 'justify-start' }}">
+            <div class="message {{ 'user' if message.type == 'human' else 'assistant' }} p-3 rounded-lg shadow max-w-[75%] {{ 'bg-blue-500 text-white rounded-br-none' if message.type == 'human' else 'bg-gray-200 text-gray-800 rounded-bl-none' }}">
+                <p class="text-sm break-words whitespace-pre-wrap">{{ message.content }}</p> {# whitespace-pre-wrap
+                preserves newlines #}
+            </div>
         </div>
+        {% endfor %}
+        <div id="chat-end"></div>
     </div>
 
-    <script>
-        // Scroll to the bottom on load/submit
-        const chatEnd = document.getElementById('chat-end');
-        if (chatEnd) {
-            chatEnd.scrollIntoView();
-        }
-    </script>
+    {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-3 text-sm" role="alert">
+        <strong class="font-bold">Error:</strong>
+        <span class="block sm:inline">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="chat-input p-4 bg-white border-t border-gray-300 rounded-b-lg sticky bottom-0">
+        <form action="/chat" class="flex items-center gap-2" method="post">
+            <input name="history_json" type="hidden" value="{{ history_json | e }}"> {# Use 'e' filter for escaping #}
+
+            <input
+                    autocomplete="off"
+                    autofocus
+                    class="flex-grow border border-gray-400 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    name="query"
+                    placeholder="Ask about orders, tracking, returns..."
+                    required
+                    type="text"
+            >
+            <button
+                    aria-label="Send message"
+                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                    type="submit"
+            >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3.105 3.105a.75.75 0 0 1 .814-.174l14.64 6.016a.75.75 0 0 1 0 1.379l-14.64 6.016a.75.75 0 0 1-1.015-.99l2.43-6.81a.75.75 0 0 1 .175-.31l-.001-.001L5.39 9.75l-2.43-6.81a.75.75 0 0 1 .145-.834Z"/>
+                    <path d="M18.5 9.75a.75.75 0 0 1-.75.75H3.115l2.433 6.81a.75.75 0 0 1-1.186.776l-3.5-9.75a.75.75 0 0 1 0-.852l3.5-9.75a.75.75 0 0 1 1.186.776L3.115 9H17.75a.75.75 0 0 1 .75.75Z"/>
+                </svg>
+
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const chatEnd = document.getElementById('chat-end');
+    if (chatEnd) {
+        chatEnd.scrollIntoView();
+    }
+</script>
 </body>
 </html>

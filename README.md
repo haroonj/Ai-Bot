@@ -1,6 +1,7 @@
 # 💡 AI E-Commerce Support Bot
 
-A backend AI-powered chatbot for handling customer support inquiries on e-commerce platforms using **LangGraph**, **LangChain**, and **PGVector**, with a simple web interface provided by **FastAPI** and **Jinja2**.
+A backend AI-powered chatbot for handling customer support inquiries on e-commerce platforms using **LangGraph**, *
+*LangChain**, and **PGVector**, with a simple web interface provided by **FastAPI** and **Jinja2**.
 
 ---
 
@@ -89,6 +90,7 @@ python scripts/load_kb.py
 ```
 
 This script:
+
 - Reads markdown files from `kb_docs/`
 - Splits them into chunks
 - Generates embeddings via OpenAI
@@ -158,8 +160,8 @@ pytest tests/
 - All external dependencies (OpenAI, PGVector, API) are mocked.
 - Some tests use `BeautifulSoup` to parse HTML responses.
 - Reports:
-  - JUnit XML: `backend-report.xml`
-  - HTML: `backend-report.html`
+    - JUnit XML: `backend-report.xml`
+    - HTML: `backend-report.html`
 
 ---
 
@@ -168,6 +170,7 @@ pytest tests/
 Workflow: `.github/workflows/backend-ci.yml`
 
 What it does:
+
 - Installs Python & dependencies
 - Runs tests with `pytest`
 - Generates JUnit & HTML reports

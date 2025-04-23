@@ -1,9 +1,10 @@
 # mock_api/main.py
 
 import logging
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from fastapi import FastAPI, HTTPException, Body
+from pydantic import BaseModel
 
 from .sample_data import get_order, create_return
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Mock E-commerce API")
 
+
 # --- Pydantic Models ---
 
 class Item(BaseModel):
@@ -19,15 +21,18 @@ class Item(BaseModel):
     name: str
     price: float
 
+
 class OrderStatus(BaseModel):
     order_id: str
     status: str
+
 
 class TrackingInfo(BaseModel):
     order_id: str
     tracking_number: Optional[str] = None
     carrier: Optional[str] = None
-    status: Optional[str] = None # Different from order status, e.g., "In Transit"
+    status: Optional[str] = None  # Different from order status, e.g., "In Transit"
+
 
 class OrderDetails(BaseModel):
     order_id: str
@@ -35,10 +40,12 @@ class OrderDetails(BaseModel):
     status: str
     delivered: bool
 
+
 class ReturnRequest(BaseModel):
     order_id: str
     sku: str
     reason: Optional[str] = None
+
 
 class ReturnResponse(BaseModel):
     return_id: Optional[str] = None
@@ -57,6 +64,7 @@ async def get_order_status_endpoint(order_id: str):
         raise HTTPException(status_code=404, detail="Order not found")
     return OrderStatus(order_id=order_id, status=order["status"])
 
+
 @app.get("/orders/{order_id}/tracking", response_model=TrackingInfo)
 async def get_tracking_info_endpoint(order_id: str):
     logger.info(f"Received tracking request for order: {order_id}")
@@ -65,13 +73,14 @@ async def get_tracking_info_endpoint(order_id: str):
         logger.warning(f"Order not found: {order_id}")
         raise HTTPException(status_code=404, detail="Order not found")
     if not order["tracking_number"]:
-         return TrackingInfo(order_id=order_id, status="Tracking not available yet")
+        return TrackingInfo(order_id=order_id, status="Tracking not available yet")
     return TrackingInfo(
         order_id=order_id,
         tracking_number=order["tracking_number"],
         carrier=order["carrier"],
         status=order["tracking_status"]
     )
+
 
 @app.get("/orders/{order_id}/details", response_model=OrderDetails)
 async def get_order_details_endpoint(order_id: str):
@@ -87,6 +96,7 @@ async def get_order_details_endpoint(order_id: str):
         delivered=order["delivered"]
     )
 
+
 @app.post("/returns", response_model=ReturnResponse)
 async def initiate_return_endpoint(request: ReturnRequest = Body(...)):
     logger.info(f"Received return request: {request.dict()}")
@@ -99,6 +109,7 @@ async def initiate_return_endpoint(request: ReturnRequest = Body(...)):
         # Determine appropriate status code based on message
         status_code = 404 if "not found" in message else 400
         raise HTTPException(status_code=status_code, detail=message)
+
 
 @app.get("/")
 async def root():

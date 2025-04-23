@@ -20,7 +20,7 @@ mock_orders = {
         "items": [
             {"sku": "ITEM003", "name": "Webcam", "price": 50.00},
         ],
-         "delivered": False,
+        "delivered": False,
     },
     "ORD789": {
         "status": "Delivered",
@@ -30,15 +30,17 @@ mock_orders = {
         "items": [
             {"sku": "ITEM004", "name": "Monitor", "price": 300.00},
         ],
-        "delivered": True, # Eligible for return
+        "delivered": True,  # Eligible for return
     },
 }
 
 mock_returns = {}
 return_counter = 1
 
+
 def get_order(order_id: str):
     return mock_orders.get(order_id)
+
 
 def create_return(order_id: str, sku: str, reason: str | None = None):
     global return_counter
