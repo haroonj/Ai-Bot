@@ -1,0 +1,62 @@
+# .github/workflows/frontend-ci.yml
+name: Frontend React Tests
+
+on:
+  push:
+    branches: [ main ]
+    # Only run frontend tests if frontend files changed (optional but efficient)
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [ main ]
+    # Only run frontend tests if frontend files changed (optional but efficient)
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  frontend-ci: # Renamed job for clarity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend # Run commands in frontend directory
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # Or your preferred LTS version
+        cache: 'npm' # Enable caching for npm dependencies
+        cache-dependency-path: frontend/package-lock.json # Cache based on lock file
+
+    - name: Install Frontend Dependencies
+      run: npm ci # Use ci for faster, reproducible installs in CI
+
+    - name: Run Frontend Tests
+      run: npm test -- --watchAll=false --coverage --reporters=default --reporters=jest-junit # Run tests non-interactively, add coverage and JUnit reporter
+      env:
+         CI: true # Often needed for CRA tests to run non-interactively
+
+    # Optional: Add jest-junit reporter for summary
+    - name: Install JUnit Reporter (if not already dev dependency)
+      run: npm install --save-dev jest-junit # Or yarn add --dev jest-junit
+
+    - name: Publish Frontend Test Report Summary
+      uses: dorny/test-reporter@v1
+      if: success() || failure() # Run even if tests fail
+      with:
+        name: Frontend Jest Results
+        path: frontend/junit.xml # Path to the JUnit XML report (ensure jest config outputs this)
+        reporter: jest-junit # Reporter type for Jest JUnit
+
+    # Optional: Upload coverage report artifact
+    - name: Upload Frontend Coverage Report
+      uses: actions/upload-artifact@v4
+      if: success() || failure()
+      with:
+        name: frontend-coverage-report
+        path: frontend/coverage # Path to coverage folder
