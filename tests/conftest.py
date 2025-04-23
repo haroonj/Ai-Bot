@@ -31,15 +31,24 @@ MockHttpxClient_Session = MagicMock(name="MockHTTPXClient_Session", return_value
 mock_llm_instance = MagicMock(name="MockLLMInstance_Session")
 MockChatOpenAI_Session = MagicMock(name="MockChatOpenAI_Session", return_value=mock_llm_instance)
 
-# Tool Function Mocks (These will replace the actual functions)
+# --- Tool Function Mocks (Assign .name attribute) ---
 MockGetOrderStatus_Func = MagicMock(name="get_order_status_func")
+MockGetOrderStatus_Func.name = "get_order_status" # Assign the expected name
+
 MockGetTrackingInfo_Func = MagicMock(name="get_tracking_info_func")
+MockGetTrackingInfo_Func.name = "get_tracking_info" # Assign the expected name
+
 MockGetOrderDetails_Func = MagicMock(name="get_order_details_func")
+MockGetOrderDetails_Func.name = "get_order_details" # Assign the expected name
+
 MockInitiateReturn_Func = MagicMock(name="initiate_return_request_func")
+MockInitiateReturn_Func.name = "initiate_return_request" # Assign the expected name
+
 MockKBLookup_Func = MagicMock(name="knowledge_base_lookup_func")
+MockKBLookup_Func.name = "knowledge_base_lookup" # Assign the expected name
 
 # LangGraph Runnable Mock
-mock_langgraph_runnable = MagicMock(name="MockLangGraphRunnable_Session") # This is the object we'll inject
+mock_langgraph_runnable = MagicMock(name="MockLangGraphRunnable_Session")
 
 # Loader/Splitter/Path Mocks
 MockDirectoryLoader_Session = MagicMock(name="MockDirectoryLoader_Session")
@@ -71,19 +80,16 @@ def patch_external_dependencies(session_mocker):
     session_mocker.patch('bot.llm.llm', mock_llm_instance)
     session_mocker.patch('bot.llm.embeddings', mock_embeddings_instance)
     session_mocker.patch('bot.tools.client', mock_httpx_client_instance)
-    session_mocker.patch('bot.tools.llm_with_tools', mock_llm_instance)
-    session_mocker.patch('bot.vector_store.vector_store', mock_pgvector_instance)
+    session_mocker.patch('bot.tools.llm_with_tools', mock_llm_instance) # Ensure this uses the mock
+    session_mocker.patch('bot.vector_store.vector_store', mock_pgvector_instance) # Patch the created instance
 
     # Patch factory functions where they are defined
     session_mocker.patch('bot.vector_store.get_retriever', MockGetRetriever)
-    session_mocker.patch('bot.tools.get_retriever', MockGetRetriever)
+    session_mocker.patch('bot.tools.get_retriever', MockGetRetriever) # Also where imported/used in tools
 
-    # --- IMPORTANT CHANGE: Patch the variable directly ---
-    # Instead of patching get_runnable, patch the actual variable holding the runnable in main.py
+    # Patch Runnable
     session_mocker.patch('main.langgraph_runnable', mock_langgraph_runnable)
-    # Keep the patch for bot.graph.app as well, just in case it's used elsewhere
     session_mocker.patch('bot.graph.app', mock_langgraph_runnable)
-    print("Patched main.langgraph_runnable directly.")
 
     # Patch the actual tool functions in bot.tools with our specific mocks
     session_mocker.patch('bot.tools.get_order_status', MockGetOrderStatus_Func)
@@ -91,6 +97,15 @@ def patch_external_dependencies(session_mocker):
     session_mocker.patch('bot.tools.get_order_details', MockGetOrderDetails_Func)
     session_mocker.patch('bot.tools.initiate_return_request', MockInitiateReturn_Func)
     session_mocker.patch('bot.tools.knowledge_base_lookup', MockKBLookup_Func)
+
+    # --- Ensure bot.nodes and bot.tools use the list of MOCK functions ---
+    # This ensures that checks like `get_order_status.name` use the mock's name
+    mocked_tool_list = [
+        MockGetOrderStatus_Func, MockGetTrackingInfo_Func, MockGetOrderDetails_Func,
+        MockInitiateReturn_Func, MockKBLookup_Func
+    ]
+    session_mocker.patch('bot.nodes.available_tools', mocked_tool_list)
+    session_mocker.patch('bot.tools.available_tools', mocked_tool_list) # Also patch where defined in bot.tools
 
     # print("Finished applying session patches.")
     yield
@@ -120,17 +135,16 @@ def reset_session_mocks():
      mock_llm_instance.invoke = MagicMock()
      mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_instance)
 
-     # Reset the MAIN runnable mock used by main.py
      mock_langgraph_runnable.reset_mock()
-     mock_langgraph_runnable.invoke = MagicMock() # Ensure invoke exists and is fresh
-     mock_langgraph_runnable.side_effect = None # Clear any side effects like exceptions
+     mock_langgraph_runnable.invoke = MagicMock()
+     mock_langgraph_runnable.side_effect = None
 
      mock_retriever_instance.reset_mock()
      mock_retriever_instance.invoke = MagicMock()
 
      # Reset Tool Function Mocks (defined above)
      MockGetOrderStatus_Func.reset_mock()
-     MockGetOrderStatus_Func.invoke = MagicMock()
+     MockGetOrderStatus_Func.invoke = MagicMock() # Ensure invoke exists if needed by tests
      MockGetTrackingInfo_Func.reset_mock()
      MockGetTrackingInfo_Func.invoke = MagicMock()
      MockGetOrderDetails_Func.reset_mock()
@@ -161,9 +175,3 @@ def reset_session_mocks():
      MockOpenAIEmbeddings_Session.reset_mock()
      MockHttpxClient_Session.reset_mock()
      MockChatOpenAI_Session.reset_mock()
-
-# Ensure project root is in path for imports if running pytest from tests dir
-# (Generally better to run pytest from root)
-# project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# if project_root not in sys.path:
-#      sys.path.insert(0, project_root)
