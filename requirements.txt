@@ -24,3 +24,4 @@ langsmith
 langchain-core~=0.3.55
 pydantic~=2.11.3
 pytest~=8.3.5
+pytest-html
