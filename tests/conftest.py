@@ -39,7 +39,7 @@ MockInitiateReturn_Func = MagicMock(name="initiate_return_request_func")
 MockKBLookup_Func = MagicMock(name="knowledge_base_lookup_func")
 
 # LangGraph Runnable Mock
-mock_langgraph_runnable = MagicMock(name="MockLangGraphRunnable_Session")
+mock_langgraph_runnable = MagicMock(name="MockLangGraphRunnable_Session") # This is the object we'll inject
 
 # Loader/Splitter/Path Mocks
 MockDirectoryLoader_Session = MagicMock(name="MockDirectoryLoader_Session")
@@ -68,21 +68,22 @@ def patch_external_dependencies(session_mocker):
     session_mocker.patch('langchain.text_splitter.RecursiveCharacterTextSplitter', MockRecursiveCharacterTextSplitter_Session)
 
     # Patch specific instances created in modules AFTER class patches are applied
-    # This ensures that when the modules are imported, they use the mocked classes,
-    # and then we explicitly replace the resulting module-level instances with our mocks.
     session_mocker.patch('bot.llm.llm', mock_llm_instance)
     session_mocker.patch('bot.llm.embeddings', mock_embeddings_instance)
     session_mocker.patch('bot.tools.client', mock_httpx_client_instance)
-    session_mocker.patch('bot.tools.llm_with_tools', mock_llm_instance) # Ensure this uses the mock
-    session_mocker.patch('bot.vector_store.vector_store', mock_pgvector_instance) # Patch the created instance
+    session_mocker.patch('bot.tools.llm_with_tools', mock_llm_instance)
+    session_mocker.patch('bot.vector_store.vector_store', mock_pgvector_instance)
 
     # Patch factory functions where they are defined
     session_mocker.patch('bot.vector_store.get_retriever', MockGetRetriever)
-    session_mocker.patch('bot.tools.get_retriever', MockGetRetriever) # Also where imported/used in tools
+    session_mocker.patch('bot.tools.get_retriever', MockGetRetriever)
 
-    # Patch Runnable where it's obtained
-    session_mocker.patch('main.get_runnable', return_value=mock_langgraph_runnable)
+    # --- IMPORTANT CHANGE: Patch the variable directly ---
+    # Instead of patching get_runnable, patch the actual variable holding the runnable in main.py
+    session_mocker.patch('main.langgraph_runnable', mock_langgraph_runnable)
+    # Keep the patch for bot.graph.app as well, just in case it's used elsewhere
     session_mocker.patch('bot.graph.app', mock_langgraph_runnable)
+    print("Patched main.langgraph_runnable directly.")
 
     # Patch the actual tool functions in bot.tools with our specific mocks
     session_mocker.patch('bot.tools.get_order_status', MockGetOrderStatus_Func)
@@ -106,7 +107,6 @@ def reset_session_mocks():
      mock_pgvector_instance.reset_mock()
      mock_pgvector_instance.as_retriever = MagicMock(return_value=mock_retriever_instance)
      mock_pgvector_instance.add_documents = MagicMock()
-     # No need to mock embedding_function if PGVector class itself is mocked
 
      mock_embeddings_instance.reset_mock()
      mock_embeddings_instance.embed_query = MagicMock(return_value=[0.1] * 1536)
@@ -120,15 +120,17 @@ def reset_session_mocks():
      mock_llm_instance.invoke = MagicMock()
      mock_llm_instance.bind_tools = MagicMock(return_value=mock_llm_instance)
 
+     # Reset the MAIN runnable mock used by main.py
      mock_langgraph_runnable.reset_mock()
-     mock_langgraph_runnable.invoke = MagicMock()
+     mock_langgraph_runnable.invoke = MagicMock() # Ensure invoke exists and is fresh
+     mock_langgraph_runnable.side_effect = None # Clear any side effects like exceptions
 
      mock_retriever_instance.reset_mock()
      mock_retriever_instance.invoke = MagicMock()
 
      # Reset Tool Function Mocks (defined above)
      MockGetOrderStatus_Func.reset_mock()
-     MockGetOrderStatus_Func.invoke = MagicMock() # Ensure invoke exists if needed by tests
+     MockGetOrderStatus_Func.invoke = MagicMock()
      MockGetTrackingInfo_Func.reset_mock()
      MockGetTrackingInfo_Func.invoke = MagicMock()
      MockGetOrderDetails_Func.reset_mock()
