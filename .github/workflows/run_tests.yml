@@ -39,13 +39,13 @@ jobs:
         POSTGRES_HOST: "localhost"
         POSTGRES_PORT: "5333"
         POSTGRES_DB: "testdb"
-        POSTGRES_USER: "testuser" # Make sure these match docker-compose for vector store tests
-        POSTGRES_PASSWORD: "testpass" # Make sure these match docker-compose
-        MOCK_API_BASE_URL: "http://dummy-mock-api.local" # Doesn't need to resolve
+        POSTGRES_USER: "testuser"
+        POSTGRES_PASSWORD: "testpass"
+        MOCK_API_BASE_URL: "http://dummy-mock-api.local"
 
     - name: Upload HTML Test Report
       uses: actions/upload-artifact@v4
-      if: success() || failure() # Run even if tests fail
+      if: success() || failure()
       with:
-        name: html-test-report-${{ matrix.python-version }} # Artifact name
-        path: report.html # Path to the generated HTML file
+        name: html-test-report-${{ matrix.python-version }}
+        path: report.html
