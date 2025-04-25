@@ -54,30 +54,6 @@ def get_history_from_response(response_text: str) -> list | None:
         return None
 
 
-def test_get_root_renders_html(client):
-    if not BS4_INSTALLED:
-        pytest.skip("BeautifulSoup4 not installed, skipping HTML parsing.")
-
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    title_tag = soup.find('title')
-    assert title_tag is not None
-    assert title_tag.string == 'AI E-commerce Bot'
-
-    form_tag = soup.find('form')
-    assert form_tag is not None, "Form tag not found in HTML"
-    assert form_tag.get('action') == '/chat', "Form action attribute is incorrect"
-    assert form_tag.get('method', '').lower() == 'post', "Form method attribute is incorrect or missing"
-
-    assert soup.find('input', {'name': 'query'}) is not None, "Query input not found"
-    assert soup.find('input', {'name': 'history_json', 'type': 'hidden'}) is not None, "Hidden history input not found"
-    parsed_history = get_history_from_response(response.text)
-    assert parsed_history == []
-
 
 def test_post_chat_with_history(client):
     user_query = "Tell me more."

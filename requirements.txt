@@ -28,3 +28,5 @@ pytest-html
 # Templating Dependencies
 Jinja2
 python-multipart
+beautifulsoup4~=4.13.4
+starlette~=0.46.2

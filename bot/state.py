@@ -1,6 +1,6 @@
 from typing import TypedDict, List, Optional, Dict, Any, Literal
-
-from langchain_core.messages import BaseMessage
+# Keep AIMessage import if using it directly as type hint below
+from langchain_core.messages import BaseMessage, AIMessage
 
 Intent = Literal[
     "get_order_status",
@@ -29,3 +29,7 @@ class GraphState(TypedDict):
     api_response: Optional[Dict[str, Any]] = None
     tool_error: Optional[str] = None
     next_node: Optional[str] = None
+    # --- Add temporary field ---
+    latest_ai_response: Optional[AIMessage] = None # To pass tool calls without saving to history yet
+    # --- End temporary field ---
+    final_llm_response: Optional[str] = None # Added in generation.py test, ensure it's here

@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from typing import List
 
 import uvicorn
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, messages_to_dict, messages_from_dict
+from starlette.staticfiles import StaticFiles
 
 from bot.config import settings
 from bot.graph import get_runnable
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="E-commerce Support Bot", version="1.0.0")
 
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,15 +39,15 @@ except Exception as e:
     langgraph_runnable = None
 
 
-def format_messages_for_template(messages: List[BaseMessage]) -> List[dict]:
+def format_messages_for_template(messages: list[BaseMessage]):
     formatted = []
     for msg in messages:
-        if isinstance(msg, (HumanMessage, AIMessage)):
-            simple_dict = {
+        if hasattr(msg, 'content'):
+            formatted.append({
                 "type": msg.type,
-                "content": msg.content
-            }
-            formatted.append(simple_dict)
+                "content": msg.content,
+                "timestamp": datetime.now().strftime("%H:%M")
+            })
     return formatted
 
 
