@@ -1,7 +1,7 @@
 # mock_api/sample_data.py
 
 mock_orders = {
-    "ORD123": {
+    "123": {
         "status": "Shipped",
         "tracking_number": "TRACK987",
         "carrier": "MockExpress",
@@ -12,7 +12,7 @@ mock_orders = {
         ],
         "delivered": False,
     },
-    "ORD456": {
+    "456": {
         "status": "Processing",
         "tracking_number": None,
         "carrier": None,
@@ -22,7 +22,7 @@ mock_orders = {
         ],
         "delivered": False,
     },
-    "ORD789": {
+    "789": {
         "status": "Delivered",
         "tracking_number": "TRACK111",
         "carrier": "MockPost",

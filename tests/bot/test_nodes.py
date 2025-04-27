@@ -36,16 +36,16 @@ def create_full_initial_state(user_query: str, state_module) -> 'GraphState':
 
 
 def test_classify_intent_tool_call_status(nodes_module, state_module):
-    initial_state = create_full_initial_state("Status for ORD123?", state_module)
+    initial_state = create_full_initial_state("Status for 123?", state_module)
     mock_ai_response = AIMessage(
         content="",
-        tool_calls=[{"name": "get_order_status", "args": {"order_id": "ORD123"}, "id": "call_123"}]
+        tool_calls=[{"name": "get_order_status", "args": {"order_id": "123"}, "id": "call_123"}]
     )
     mock_llm_with_tools_instance.invoke.return_value = mock_ai_response
     result_state = nodes_module.classify_intent(initial_state)
     mock_llm_with_tools_instance.invoke.assert_called_once_with(initial_state['messages'])
     assert result_state['intent'] == "get_order_status"  # Should now pass
-    assert result_state['order_id'] == "ORD123"
+    assert result_state['order_id'] == "123"
     assert result_state['next_node'] == "execute_tool"
     assert len(initial_state['messages']) == 2
     assert initial_state['messages'][1] is mock_ai_response
@@ -86,18 +86,18 @@ def test_classify_intent_multi_turn_return_sku_provided_no_match(nodes_module, s
 def test_execute_tool_via_tool_call_status_success(nodes_module, state_module):
     from tests.conftest import MockGetOrderStatus_Func
     tool_call_message = AIMessage(content="", tool_calls=[
-        {"name": "get_order_status", "args": {"order_id": "ORD123"}, "id": "call_1"}])
-    initial_state = create_full_initial_state("Status ORD123?", state_module)
+        {"name": "get_order_status", "args": {"order_id": "123"}, "id": "call_1"}])
+    initial_state = create_full_initial_state("Status 123?", state_module)
     initial_state['messages'].append(tool_call_message)
     initial_state['intent'] = "get_order_status"
-    initial_state['order_id'] = "ORD123"
+    initial_state['order_id'] = "123"
 
-    mock_api_response = {"order_id": "ORD123", "status": "Delivered"}
+    mock_api_response = {"order_id": "123", "status": "Delivered"}
     MockGetOrderStatus_Func.invoke.return_value = mock_api_response
 
     result_state = nodes_module.execute_tool(initial_state)
 
-    MockGetOrderStatus_Func.invoke.assert_called_once_with({"order_id": "ORD123"})
+    MockGetOrderStatus_Func.invoke.assert_called_once_with({"order_id": "123"})
     assert result_state['api_response'] == mock_api_response
     assert result_state.get('tool_error') is None
     assert len(initial_state['messages']) == 3
@@ -169,14 +169,14 @@ def test_execute_tool_explicit_kb_lookup_no_query(nodes_module, state_module):
 
 def test_execute_tool_internal_call_get_details_success(nodes_module, state_module):
     from tests.conftest import MockGetOrderDetails_Func
-    initial_state = create_full_initial_state("Return from ORD789", state_module)
+    initial_state = create_full_initial_state("Return from 789", state_module)
     initial_state['intent'] = "initiate_return"
-    initial_state['order_id'] = "ORD789"
+    initial_state['order_id'] = "789"
     initial_state['next_node'] = "handle_return_step_1"
-    mock_details = {"order_id": "ORD789", "items": [{"sku": "S1"}], "delivered": True}
+    mock_details = {"order_id": "789", "items": [{"sku": "S1"}], "delivered": True}
     MockGetOrderDetails_Func.invoke.return_value = mock_details
     result_state = nodes_module.execute_tool(initial_state)
-    MockGetOrderDetails_Func.invoke.assert_called_once_with({"order_id": "ORD789"})
+    MockGetOrderDetails_Func.invoke.assert_called_once_with({"order_id": "789"})
     assert result_state['api_response'] == mock_details
     assert result_state.get('tool_error') is None
 
@@ -199,7 +199,7 @@ def test_execute_tool_internal_call_submit_return_success(nodes_module, state_mo
     from tests.conftest import MockInitiateReturn_Func
     initial_state = create_full_initial_state("Reason is X", state_module)
     initial_state.update({
-        "intent": "return_reason_provided", "order_id": "ORD789",
+        "intent": "return_reason_provided", "order_id": "789",
         "item_sku_to_return": "SKU1", "return_reason": "Reason is X",
         "next_node": "execute_tool"
     })
@@ -207,7 +207,7 @@ def test_execute_tool_internal_call_submit_return_success(nodes_module, state_mo
     MockInitiateReturn_Func.invoke.return_value = mock_return_resp
     result_state = nodes_module.execute_tool(initial_state)
     MockInitiateReturn_Func.invoke.assert_called_once_with(
-        {"order_id": "ORD789", "sku": "SKU1", "reason": "Reason is X"})
+        {"order_id": "789", "sku": "SKU1", "reason": "Reason is X"})
     assert result_state['api_response'] == mock_return_resp
     assert result_state.get('tool_error') is None
     assert result_state.get('item_sku_to_return') is None
@@ -234,10 +234,10 @@ def test_execute_tool_internal_call_submit_return_error(nodes_module, state_modu
 
 def test_handle_multi_turn_step1_details_ok(nodes_module, state_module):
     items = [{"sku": "S1", "name": "N1"}, {"sku": "S2", "name": "N2"}]
-    initial_state = create_full_initial_state("Return ORD789", state_module)
+    initial_state = create_full_initial_state("Return 789", state_module)
     initial_state.update({
-        "intent": "initiate_return", "order_id": "ORD789",
-        "api_response": {"order_id": "ORD789", "items": items, "delivered": True},
+        "intent": "initiate_return", "order_id": "789",
+        "api_response": {"order_id": "789", "items": items, "delivered": True},
         "tool_error": None, "next_node": "handle_return_step_1",
     })
     result_state = nodes_module.handle_multi_turn_return(initial_state)
@@ -261,10 +261,10 @@ def test_handle_multi_turn_step1_details_error(nodes_module, state_module):
 
 
 def test_handle_multi_turn_step1_details_no_items(nodes_module, state_module):
-    initial_state = create_full_initial_state("Return ORD123", state_module)
+    initial_state = create_full_initial_state("Return 123", state_module)
     initial_state.update({
-        "intent": "initiate_return", "order_id": "ORD123",
-        "api_response": {"order_id": "ORD123", "items": [], "delivered": True},
+        "intent": "initiate_return", "order_id": "123",
+        "api_response": {"order_id": "123", "items": [], "delivered": True},
         "tool_error": None, "next_node": "handle_return_step_1"
     })
     result_state = nodes_module.handle_multi_turn_return(initial_state)

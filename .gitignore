@@ -145,8 +145,15 @@ Thumbs.db
 .spyproject
 .ropeproject
 
+# ===================
+# Local FAISS index files
+# ===================
+faiss_index/
+
+# ===================
+# Project Specific Outputs
+# ===================
 report.xml
 report.html
 repomix-output.txt
-
 ecommerce_bot_graph.png

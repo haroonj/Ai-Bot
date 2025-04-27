@@ -3,9 +3,8 @@ langchain~=0.3.23
 langchain-community~=0.3.21
 langchain-openai~=0.3.14
 langgraph~=0.3.31
-# For PGVector - make sure you have postgres client libs installed system-wide if needed
-pgvector
-psycopg2-binary # Or psycopg2 if you compile yourself
+# For FAISS Vector Store
+faiss-cpu # Use faiss-gpu if you have CUDA set up and need GPU acceleration
 # LLM related
 tiktoken
 openai # Assuming OpenAI use

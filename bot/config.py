@@ -1,4 +1,5 @@
 from typing import Optional
+import os
 
 from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,19 +13,10 @@ class Settings(BaseSettings):
     embedding_model_name: str = "text-embedding-3-small"
     llm_model_name: str = "gpt-4o-mini"
 
-    # PGVector
-    postgres_host: str = Field("localhost", validation_alias='POSTGRES_HOST')
-    postgres_port: int = Field(5333, validation_alias='POSTGRES_PORT')
-    postgres_db: str = Field("ragbot", validation_alias='POSTGRES_DB')
-    postgres_user: str = Field("raguser", validation_alias='POSTGRES_USER')
-    postgres_password: str = Field("ragpass", validation_alias='POSTGRES_PASSWORD')
-    vector_store_collection_name: str = Field("ecommerce_kb", validation_alias='VECTOR_STORE_COLLECTION_NAME')
-
-    @property
-    def pgvector_connection_string(self) -> str:
-        return f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-
-    mock_api_base_url: HttpUrl = Field("http://localhost:8001", validation_alias='MOCK_API_BASE_URL')
+    # FAISS Index Path (relative to project root)
+    # Ensure this path is writable by the user running the script/server
+    # It's often best placed within the project directory for easy management.
+    faiss_index_path: str = Field("./faiss_index", validation_alias='FAISS_INDEX_PATH')
 
     # Langsmith (Optional)
     langchain_tracing_v2: Optional[str] = Field(None, validation_alias='LANGCHAIN_TRACING_V2')

@@ -125,7 +125,7 @@ Access the chatbot at:
 
 ```json
 {
-  "query": "What is the status of order ORD123?",
+  "query": "What is the status of order 123?",
   "conversation_id": "optional-uuid-string"
 }
 ```
@@ -134,7 +134,7 @@ Access the chatbot at:
 
 ```json
 {
-  "reply": "The status for order ORD123 is: Shipped.",
+  "reply": "The status for order 123 is: Shipped.",
   "conversation_id": "uuid"
 }
 ```

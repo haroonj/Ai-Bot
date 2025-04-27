@@ -1,16 +1,13 @@
 import logging
 from typing import Optional, Dict, Any
 
-import httpx
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
-from .config import settings
 from .vector_store import get_retriever
+from mock_api.sample_data import get_order, create_return
 
 logger = logging.getLogger(__name__)
-MOCK_API_URL = str(settings.mock_api_base_url)
-client = httpx.Client(base_url=MOCK_API_URL, timeout=10.0)
 
 
 class OrderInfoInput(BaseModel):
@@ -25,86 +22,81 @@ class ReturnInput(BaseModel):
 
 @tool("get_order_status", args_schema=OrderInfoInput)
 def get_order_status(order_id: str) -> Dict[str, Any]:
-    """Looks up the current status of a specific order using its Order ID."""
-    try:
-        response = client.get(f"/orders/{order_id}/status")
-        response.raise_for_status()
-        logger.info(f"API call get_order_status for {order_id} successful.")
-        return response.json()
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"API Error getting status for {order_id}: {e.response.status_code} - {e.response.text}")
-        if e.response.status_code == 404:
-            return {"error": f"Order ID '{order_id}' not found."}
-        else:
-            return {"error": f"API error fetching status for order {order_id}: {e.response.status_code}"}
-    except httpx.RequestError as e:
-        logger.error(f"Request Error getting status for {order_id}: {e}", exc_info=True)
-        return {"error": f"Could not connect to the order system to fetch status for {order_id}."}
+    """Looks up the current status of a specific order using its Order ID from internal mock data."""
+    logger.info(f"Tool: Looking up status for order {order_id} in mock data.")
+    order = get_order(order_id)
+    if not order:
+        logger.warning(f"Tool: Order ID '{order_id}' not found in mock data.")
+        return {"error": f"Order ID '{order_id}' not found."}
+    else:
+        logger.info(f"Tool: Found status for order {order_id}: {order['status']}")
+        # Return only the expected fields, matching the previous API response structure
+        return {"order_id": order_id, "status": order["status"]}
 
 
 @tool("get_tracking_info", args_schema=OrderInfoInput)
 def get_tracking_info(order_id: str) -> Dict[str, Any]:
-    """Retrieves the shipping tracking information (tracking number, carrier, status) for a specific order using its Order ID."""
-    try:
-        response = client.get(f"/orders/{order_id}/tracking")
-        response.raise_for_status()
-        logger.info(f"API call get_tracking_info for {order_id} successful.")
-        return response.json()
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"API Error getting tracking for {order_id}: {e.response.status_code} - {e.response.text}")
-        if e.response.status_code == 404:
-            return {"error": f"Order ID '{order_id}' not found."}
-        else:
-            return {"error": f"API error fetching tracking for order {order_id}: {e.response.status_code}"}
-    except httpx.RequestError as e:
-        logger.error(f"Request Error getting tracking for {order_id}: {e}", exc_info=True)
-        return {"error": f"Could not connect to the order system to fetch tracking for {order_id}."}
+    """Retrieves the shipping tracking information (tracking number, carrier, status) for a specific order using its Order ID from internal mock data."""
+    logger.info(f"Tool: Looking up tracking for order {order_id} in mock data.")
+    order = get_order(order_id)
+    if not order:
+        logger.warning(f"Tool: Order ID '{order_id}' not found in mock data for tracking.")
+        return {"error": f"Order ID '{order_id}' not found."}
+
+    # Check if tracking info exists
+    if order.get("tracking_number"):
+        logger.info(f"Tool: Found tracking info for order {order_id}.")
+        # Return the structure expected by the calling code
+        return {
+            "order_id": order_id,
+            "tracking_number": order["tracking_number"],
+            "carrier": order.get("carrier"),
+            "status": order.get("tracking_status")
+        }
+    else:
+        logger.info(f"Tool: Tracking info not available for order {order_id}.")
+        # Return a specific structure indicating unavailability
+        return {"order_id": order_id, "status": "Tracking not available yet"}
 
 
 @tool("get_order_details", args_schema=OrderInfoInput)
 def get_order_details(order_id: str) -> Dict[str, Any]:
-    """Fetches the detailed information about an order, including the list of items, required for initiating a return."""
-    try:
-        response = client.get(f"/orders/{order_id}/details")
-        response.raise_for_status()
-        logger.info(f"API call get_order_details for {order_id} successful.")
-        details = response.json()
-        if details.get("delivered"):
-            return details
-        else:
-            return {"error": f"Order {order_id} is not yet delivered or not eligible for return based on details.",
-                    "details": details}
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"API Error getting details for {order_id}: {e.response.status_code} - {e.response.text}")
-        if e.response.status_code == 404:
-            return {"error": f"Order ID '{order_id}' not found."}
-        else:
-            return {"error": f"API error fetching details for order {order_id}: {e.response.status_code}"}
-    except httpx.RequestError as e:
-        logger.error(f"Request Error getting details for {order_id}: {e}", exc_info=True)
-        return {"error": f"Could not connect to the order system to fetch details for {order_id}."}
+    """Fetches the detailed information about an order, including the list of items, required for initiating a return from internal mock data."""
+    logger.info(f"Tool: Looking up details for order {order_id} in mock data.")
+    order = get_order(order_id)
+    if not order:
+        logger.warning(f"Tool: Order ID '{order_id}' not found in mock data for details.")
+        return {"error": f"Order ID '{order_id}' not found."}
+
+    logger.info(f"Tool: Found details for order {order_id}. Delivered: {order.get('delivered')}")
+    details = {
+        "order_id": order_id,
+        "items": order.get("items", []),
+        "status": order.get("status"),
+        "delivered": order.get("delivered", False)
+    }
+    # Check eligibility based on details (e.g., must be delivered)
+    if details["delivered"]:
+        return details
+    else:
+        # Return error structure but include details for context if needed by LLM
+        return {"error": f"Order {order_id} is not yet delivered or not eligible for return based on details.",
+                "details": details}
 
 
 @tool("initiate_return_request", args_schema=ReturnInput)
 def initiate_return_request(order_id: str, sku: str, reason: Optional[str] = None) -> Dict[str, Any]:
-    """Submits a request to initiate a return for a specific item (SKU) from a given order (Order ID). Optionally include a reason."""
-    payload = {"order_id": order_id, "sku": sku, "reason": reason}
-    try:
-        response = client.post("/returns", json=payload)
-        response.raise_for_status()
-        logger.info(f"API call initiate_return_request for order {order_id}, sku {sku} successful.")
-        return response.json()
-    except httpx.HTTPStatusError as e:
-        logger.warning(
-            f"API Error initiating return for {order_id}, sku {sku}: {e.response.status_code} - {e.response.text}")
-        try:
-            error_detail = e.response.json().get("detail", "Unknown API error during return.")
-        except Exception:
-            error_detail = f"API error initiating return: Status {e.response.status_code}"
-        return {"error": error_detail}
-    except httpx.RequestError as e:
-        logger.error(f"Request Error initiating return for {order_id}, sku {sku}: {e}", exc_info=True)
-        return {"error": f"Could not connect to the return system for order {order_id}."}
+    """Submits a request to initiate a return for a specific item (SKU) from a given order (Order ID) using internal mock logic. Optionally include a reason."""
+    logger.info(f"Tool: Attempting to initiate return for order {order_id}, SKU {sku} in mock data.")
+    return_id, message = create_return(order_id, sku, reason)
+
+    if return_id:
+        logger.info(f"Tool: Mock return successful: {return_id} - {message}")
+        return {"return_id": return_id, "status": "Return Initiated", "message": message}
+    else:
+        # create_return returns the error message directly
+        logger.warning(f"Tool: Mock return failed for order {order_id}, SKU {sku}: {message}")
+        return {"error": message}
 
 
 @tool("knowledge_base_lookup")
